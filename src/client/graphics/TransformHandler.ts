@@ -152,10 +152,8 @@ export class TransformHandler {
   onGoToPlayer(event: GoToPlayerEvent) {
     this.game.setFocusedPlayer(event.player);
     this.clearTarget();
-    this.target = new Cell(
-      event.player.nameLocation().x,
-      event.player.nameLocation().y,
-    );
+    const playerLocation = event.player.nameLocation();
+    this.target = new Cell(playerLocation.x, playerLocation.y);
     this.intervalID = setInterval(() => this.goTo(), 1);
   }
 
@@ -184,8 +182,11 @@ export class TransformHandler {
   private goTo() {
     const { screenX, screenY } = this.screenCenter();
     const screenMapCenter = new Cell(screenX, screenY);
-
+    const isValidCoordinate =
+      this.game.isValidCoord(screenX, screenY) &&
+      this.game.isValidCoord(this.target.x, this.target.y);
     if (
+      isValidCoordinate &&
       this.game.manhattanDist(
         this.game.ref(screenX, screenY),
         this.game.ref(this.target.x, this.target.y),
