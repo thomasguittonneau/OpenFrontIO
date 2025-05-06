@@ -189,7 +189,7 @@ export class PlayerView {
       ? this.anonymousName
       : this.data.name;
   }
-  playerColor(): Colord {
+  playerColor(): Colord | null {
     return this.game.playerColor(this.data.id);
   }
   clientID(): ClientID {

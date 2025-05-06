@@ -302,7 +302,7 @@ export class Leaderboard extends LitElement implements Layer {
                   <td class="player-name">
                     <div class="player-color">
                       <div
-                        style="background-color: ${player.color.toRgbString()};"
+                        style="background-color: ${player.color?.toRgbString()};"
                       ></div>
                       ${unsafeHTML(player.name)}
                     </div>
