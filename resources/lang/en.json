@@ -164,6 +164,7 @@
     "options_title": "Options",
     "bots": "Bots: ",
     "bots_disabled": "Disabled",
+    "break_alliance_cooldown": "Cooldown break alliance(seconds)",
     "disable_nations": "Disable Nations",
     "instant_build": "Instant build",
     "infinite_gold": "Infinite gold",

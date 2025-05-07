@@ -222,7 +222,9 @@ class Client {
     }
 
     document
-      .querySelectorAll("#bots-count, #private-lobby-bots-count")
+      .querySelectorAll(
+        "#bots-count, #private-lobby-bots-count, #alliance-break-cooldown",
+      )
       .forEach((slider) => {
         updateSliderProgress(slider);
         slider.addEventListener("input", () => updateSliderProgress(slider));

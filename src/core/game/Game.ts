@@ -241,6 +241,7 @@ export interface Alliance {
   requestor(): Player;
   recipient(): Player;
   createdAt(): Tick;
+  canBeBreak(): boolean;
   other(player: Player): Player;
 }
 
