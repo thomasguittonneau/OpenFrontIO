@@ -246,7 +246,7 @@ export class HostLobbyModal extends LitElement {
                   id="alliance-break-cooldown"
                   min="0"
                   max="600"
-                  step="1"
+                  step="10"
                   @input=${this.handleAllianceBreakCooldownChange}
                   @change=${this.handleAllianceBreakCooldownChange}
                   .value="${String(this.allianceBreakCooldown)}"
