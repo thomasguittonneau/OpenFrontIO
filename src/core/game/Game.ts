@@ -72,8 +72,10 @@ export enum GameMapType {
   Japan = "Japan",
   BetweenTwoSeas = "Between Two Seas",
   KnownWorld = "Known World",
-  FaroeIslands = "FaroeIslands",
+  FaroeIslands = "Faroe Islands",
   DeglaciatedAntarctica = "Deglaciated Antarctica",
+  FalklandIslands = "Falkland Islands",
+  Baikal = "Baikal",
 }
 
 export const mapCategories: Record<string, GameMapType[]> = {
@@ -97,6 +99,8 @@ export const mapCategories: Record<string, GameMapType[]> = {
     GameMapType.Mena,
     GameMapType.Australia,
     GameMapType.FaroeIslands,
+    GameMapType.FalklandIslands,
+    GameMapType.Baikal,
   ],
   fantasy: [
     GameMapType.Pangaea,
@@ -506,6 +510,15 @@ export interface Game extends GameMap {
     playerID: PlayerID | null,
   ): void;
 
+  displayChat(
+    message: string,
+    category: string,
+    variables: Record<string, string>,
+    playerID: PlayerID | null,
+    isFrom: boolean,
+    recipient: string,
+  ): void;
+
   // Nations
   nations(): Nation[];
 
@@ -558,6 +571,7 @@ export enum MessageType {
   INFO,
   WARN,
   ERROR,
+  CHAT,
 }
 
 export interface NameViewData {

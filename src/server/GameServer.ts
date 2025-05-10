@@ -1,3 +1,4 @@
+import ipAnonymize from "ip-anonymize";
 import { Logger } from "winston";
 import WebSocket from "ws";
 import {
@@ -57,6 +58,8 @@ export class GameServer {
 
   private _hasPrestarted = false;
 
+  private kickedClients: Set<ClientID> = new Set();
+
   constructor(
     public readonly id: string,
     readonly log_: Logger,
@@ -106,10 +109,16 @@ export class GameServer {
   }
 
   public addClient(client: Client, lastTurn: number) {
+    if (this.kickedClients.has(client.clientID)) {
+      this.log.warn(`cannot add client, already kicked`, {
+        clientID: client.clientID,
+      });
+      return;
+    }
     this.log.info("client (re)joining game", {
       clientID: client.clientID,
       persistentID: client.persistentID,
-      clientIP: client.ip,
+      clientIP: ipAnonymize(client.ip),
       isRejoin: lastTurn > 0,
     });
 
@@ -121,7 +130,7 @@ export class GameServer {
     ) {
       this.log.warn("cannot add client, already have 3 ips", {
         clientID: client.clientID,
-        clientIP: client.ip,
+        clientIP: ipAnonymize(client.ip),
       });
       return;
     }
@@ -131,10 +140,14 @@ export class GameServer {
       (c) => c.clientID == client.clientID,
     );
     if (existing != null) {
-      if (client.persistentID != existing.persistentID) {
-        console.warn(
-          `client ${client.clientID} cannot rejoin game, persistent id mismatch: exist pid: ${existing.persistentID}, new pid: ${client.persistentID}`,
-        );
+      if (client.persistentID !== existing.persistentID) {
+        this.log.error("persistent ids do not match", {
+          clientID: client.clientID,
+          clientIP: ipAnonymize(client.ip),
+          clientPersistentID: client.persistentID,
+          existingIP: ipAnonymize(existing.ip),
+          existingPersistentID: existing.persistentID,
+        });
         return;
       }
       existing.ws.removeAllListeners("message");
@@ -155,36 +168,12 @@ export class GameServer {
           try {
             clientMsg = ClientMessageSchema.parse(JSON.parse(message));
           } catch (error) {
-            throw Error(`error parsing schema for ${client.ip}`);
+            throw Error(`error parsing schema for ${ipAnonymize(client.ip)}`);
           }
-          if (this.allClients.has(clientMsg.clientID)) {
-            const client = this.allClients.get(clientMsg.clientID);
-            if (client.persistentID != clientMsg.persistentID) {
-              this.log.warn(
-                `Client ID ${clientMsg.clientID} sent incorrect id ${clientMsg.persistentID}, does not match persistent id ${client.persistentID}`,
-                {
-                  clientID: clientMsg.clientID,
-                  persistentID: clientMsg.persistentID,
-                },
-              );
-              return;
-            }
-          }
-
-          // Clear out persistent id to make sure it doesn't get sent to other clients.
-          clientMsg.persistentID = null;
-
           if (clientMsg.type == "intent") {
-            if (clientMsg.gameID != this.id) {
-              this.log.warn("client sent to wrong game", {
-                clientID: clientMsg.clientID,
-                persistentID: clientMsg.persistentID,
-              });
-              return;
-            }
-            if (clientMsg.intent.clientID != clientMsg.clientID) {
+            if (clientMsg.intent.clientID != client.clientID) {
               this.log.warn(
-                `client id mismatch, client message: ${clientMsg.clientID}, intent client id ${clientMsg.intent.clientID}`,
+                `client id mismatch, client: ${client.clientID}, intent: ${clientMsg.intent.clientID}`,
               );
               return;
             }
@@ -338,7 +327,6 @@ export class GameServer {
   private endTurn() {
     const pastTurn: Turn = {
       turnNumber: this.turns.length,
-      gameID: this.id,
       intents: this.intents,
     };
     this.turns.push(pastTurn);
@@ -386,7 +374,7 @@ export class GameServer {
         const playerRecords: PlayerRecord[] = Array.from(
           this.allClients.values(),
         ).map((client) => ({
-          ip: client.ip,
+          ip: ipAnonymize(client.ip),
           clientID: client.clientID,
           username: client.username,
           persistentID: client.persistentID,
@@ -514,6 +502,31 @@ export class GameServer {
 
   public isPublic(): boolean {
     return this.gameConfig.gameType == GameType.Public;
+  }
+
+  public kickClient(clientID: ClientID): void {
+    if (this.kickedClients.has(clientID)) {
+      this.log.warn(`cannot kick client, already kicked`, {
+        clientID,
+      });
+      return;
+    }
+    const client = this.activeClients.find((c) => c.clientID === clientID);
+    if (client) {
+      this.log.info("Kicking client from game", {
+        clientID: client.clientID,
+        persistentID: client.persistentID,
+      });
+      client.ws.close(1000, "Kicked from game");
+      this.activeClients = this.activeClients.filter(
+        (c) => c.clientID !== clientID,
+      );
+      this.kickedClients.add(clientID);
+    } else {
+      this.log.warn(`cannot kick client, not found in game`, {
+        clientID,
+      });
+    }
   }
 
   private handleSynchronization() {

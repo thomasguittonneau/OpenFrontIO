@@ -82,7 +82,7 @@ export function joinLobby(
     if (message.type == "start") {
       // Trigger prestart for singleplayer games
       onPrestart();
-      consolex.log(`lobby: game started: ${JSON.stringify(message)}`);
+      consolex.log(`lobby: game started: ${JSON.stringify(message, null, 2)}`);
       onJoin();
       // For multiplayer games, GameStartInfo is not known until game starts.
       lobbyConfig.gameStartInfo = message.gameStartInfo;
@@ -275,7 +275,6 @@ export class ClientGameRunner {
           while (turn.turnNumber - 1 > this.turnsSeen) {
             this.worker.sendTurn({
               turnNumber: this.turnsSeen,
-              gameID: turn.gameID,
               intents: [],
             });
             this.turnsSeen++;

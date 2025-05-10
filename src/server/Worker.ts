@@ -1,13 +1,14 @@
 import express, { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import http from "http";
+import ipAnonymize from "ip-anonymize";
 import path from "path";
 import { fileURLToPath } from "url";
 import { WebSocket, WebSocketServer } from "ws";
 import { GameEnv } from "../core/configuration/Config";
 import { getServerConfigFromServer } from "../core/configuration/ConfigLoader";
 import { GameType } from "../core/game/Game";
-import { GameConfig, GameRecord } from "../core/Schemas";
+import { ClientMessageSchema, GameConfig, GameRecord } from "../core/Schemas";
 import { archive, readGameRecord } from "./Archive";
 import { Client } from "./Client";
 import { GameManager } from "./GameManager";
@@ -88,7 +89,7 @@ export function startWorker() {
         req.headers[config.adminHeader()] !== config.adminToken()
       ) {
         log.warn(
-          `cannot create public game ${id}, ip ${clientIP} incorrect admin token`,
+          `cannot create public game ${id}, ip ${ipAnonymize(clientIP)} incorrect admin token`,
         );
         return res.status(400);
       }
@@ -105,7 +106,7 @@ export function startWorker() {
       const game = gm.createGame(id, gc);
 
       log.info(
-        `Worker ${workerId}: IP ${clientIP} creating game ${game.isPublic() ? "Public" : "Private"} with id ${id}`,
+        `Worker ${workerId}: IP ${ipAnonymize(clientIP)} creating game ${game.isPublic() ? "Public" : "Private"} with id ${id}`,
       );
       res.json(game.gameInfo());
     }),
@@ -123,7 +124,7 @@ export function startWorker() {
       if (game.isPublic()) {
         const clientIP = req.ip || req.socket.remoteAddress || "unknown";
         log.info(
-          `cannot start public game ${game.id}, game is public, ip: ${clientIP}`,
+          `cannot start public game ${game.id}, game is public, ip: ${ipAnonymize(clientIP)}`,
         );
         return;
       }
@@ -147,7 +148,9 @@ export function startWorker() {
       }
       if (game.isPublic()) {
         const clientIP = req.ip || req.socket.remoteAddress || "unknown";
-        log.warn(`cannot update public game ${game.id}, ip: ${clientIP}`);
+        log.warn(
+          `cannot update public game ${game.id}, ip: ${ipAnonymize(clientIP)}`,
+        );
         return res.status(400);
       }
       if (game.hasStarted()) {
@@ -251,6 +254,27 @@ export function startWorker() {
     }),
   );
 
+  app.post(
+    "/api/kick_player/:gameID/:clientID",
+    gatekeeper.httpHandler(LimiterType.Post, async (req, res) => {
+      if (req.headers[config.adminHeader()] !== config.adminToken()) {
+        res.status(401).send("Unauthorized");
+        return;
+      }
+
+      const { gameID, clientID } = req.params;
+
+      const game = gm.game(gameID);
+      if (!game) {
+        res.status(404).send("Game not found");
+        return;
+      }
+
+      game.kickClient(clientID);
+      res.status(200).send("Player kicked successfully");
+    }),
+  );
+
   // WebSocket handling
   wss.on("connection", (ws: WebSocket, req) => {
     ws.on(
@@ -264,7 +288,9 @@ export function startWorker() {
         try {
           // Process WebSocket messages as in your original code
           // Parse and handle client messages
-          const clientMsg = JSON.parse(message.toString());
+          const clientMsg = ClientMessageSchema.parse(
+            JSON.parse(message.toString()),
+          );
 
           if (clientMsg.type == "join") {
             // Verify this worker should handle this game
@@ -303,7 +329,7 @@ export function startWorker() {
           // Handle other message types
         } catch (error) {
           log.warn(
-            `error handling websocket message for ${ip}: ${error}`.substring(
+            `error handling websocket message for ${ipAnonymize(ip)}: ${error}`.substring(
               0,
               250,
             ),
